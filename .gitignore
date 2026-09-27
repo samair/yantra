@@ -1,0 +1,24 @@
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Large checkpoints & artifacts
+checkpoints/*.pt
+checkpoints/*.bin
+checkpoints/*.safetensors
+data/*.jsonl
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
