@@ -8,7 +8,7 @@
 
 **Yantra** (यन्त्र — *instrument / machine*) is a lightweight, on-device foundation model engineered exclusively for **function calling, argument slot filling, and structured tool dispatching** within a total weight footprint under **50 MB**.
 
-Inspired by the efficiency principles of [cactus-compute/needle](https://github.com/cactus-compute/needle), Yantra strips away general conversational chit-chat to specialize entirely on high-accuracy function selection and typed argument binding.
+Yantra strips away general conversational chit-chat to specialize entirely on high-accuracy function selection and typed argument binding.
 
 ---
 
