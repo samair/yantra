@@ -151,9 +151,10 @@ class YantraTrainer:
             lm_loss = outputs["loss"]
             loss = lm_loss
 
-            # Confidence head auxiliary BCE loss
+            # Confidence head auxiliary BCE loss with numerical clamp
             if outputs["confidence"] is not None and self.config.confidence_loss_weight > 0:
-                conf_loss = F.binary_cross_entropy(outputs["confidence"], conf_target)
+                clamped_conf = outputs["confidence"].clamp(min=1e-7, max=1.0 - 1e-7)
+                conf_loss = F.binary_cross_entropy(clamped_conf, conf_target)
                 loss = loss + self.config.confidence_loss_weight * conf_loss
 
             loss = loss / self.config.gradient_accumulation_steps
