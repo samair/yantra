@@ -47,13 +47,6 @@ class TrainingConfig:
             dev = torch.device("mps")
         else:
             dev = torch.device("cpu")
-
-        # Configure MPS memory pool on Apple Silicon to prevent aggressive RAM hoarding
-        if dev.type == "mps":
-            import os
-            if "PYTORCH_MPS_HIGH_WATERMARK_RATIO" not in os.environ:
-                os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
-
         return dev
 
 
@@ -182,13 +175,6 @@ class YantraTrainer:
                 self.optimizer.step()
                 self.scheduler.step()
                 self.optimizer.zero_grad()
-
-            # Periodic cache clearing to prevent Metal memory pool bloat
-            if self.config.empty_cache_every_steps > 0 and (step + 1) % self.config.empty_cache_every_steps == 0:
-                if self.device.type == "mps" and hasattr(torch.mps, "empty_cache"):
-                    torch.mps.empty_cache()
-                elif self.device.type == "cuda" and hasattr(torch.cuda, "empty_cache"):
-                    torch.cuda.empty_cache()
 
             # Live step progress with flush=True
             if (step + 1) % log_interval == 0 or (step + 1) == total_batches:
