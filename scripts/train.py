@@ -23,7 +23,9 @@ def main():
     parser = argparse.ArgumentParser(description="Train Yantra Sub-50MB Tool Dispatching Model")
     parser.add_argument("--samples", type=int, default=1000, help="Number of synthetic training examples to generate")
     parser.add_argument("--epochs", type=int, default=3, help="Training epochs")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=4, help="Micro-batch size per step")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4, help="Gradient accumulation steps")
+    parser.add_argument("--max_seq_len", type=int, default=512, help="Maximum sequence length limit")
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate")
     parser.add_argument("--device", type=str, default=None, help="Device (cpu, mps, cuda)")
     parser.add_argument("--save_dir", type=str, default="checkpoints", help="Directory to save checkpoints")
@@ -41,8 +43,8 @@ def main():
     print(f"Train samples: {len(train_data)}, Validation samples: {len(eval_data)}")
 
     tokenizer = YantraTokenizer.load()
-    train_dataset = ToolCallingDataset(train_data, tokenizer=tokenizer)
-    eval_dataset = ToolCallingDataset(eval_data, tokenizer=tokenizer)
+    train_dataset = ToolCallingDataset(train_data, tokenizer=tokenizer, max_seq_len=args.max_seq_len)
+    eval_dataset = ToolCallingDataset(eval_data, tokenizer=tokenizer, max_seq_len=args.max_seq_len)
 
     config = YantraConfig()
     budget = config.calculate_parameter_count()
@@ -53,6 +55,7 @@ def main():
     train_config = TrainingConfig(
         learning_rate=args.lr,
         batch_size=args.batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         max_epochs=args.epochs,
         save_dir=args.save_dir,
         device=args.device,

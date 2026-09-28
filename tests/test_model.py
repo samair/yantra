@@ -50,6 +50,13 @@ def test_model_forward_and_loss():
     assert outputs["loss"].item() > 0.0
     assert outputs["confidence"].shape == (batch_size, 1)
 
+    # Test memory-efficient selective projection (return_logits=False)
+    opt_outputs = model(input_ids=input_ids, labels=labels, return_logits=False)
+    assert opt_outputs["logits"] is None  # Never allocated
+    assert opt_outputs["loss"] is not None
+    # Losses must be mathematically identical
+    assert torch.isclose(outputs["loss"], opt_outputs["loss"], atol=1e-5)
+
 
 def test_kv_cache_generation():
     """Test autoregressive generation using incremental KV cache."""

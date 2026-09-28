@@ -27,24 +27,34 @@ class TrainingConfig:
     learning_rate: float = 3e-4
     min_learning_rate: float = 1e-5
     weight_decay: float = 0.01
-    batch_size: int = 8
-    gradient_accumulation_steps: int = 2
+    batch_size: int = 4
+    gradient_accumulation_steps: int = 4
     max_epochs: int = 3
     warmup_steps: int = 20
     max_grad_norm: float = 1.0
     confidence_loss_weight: float = 0.1
     eval_every_steps: int = 50
+    empty_cache_every_steps: int = 25
     save_dir: str = "checkpoints"
     device: Optional[str] = None
 
     def get_device(self) -> torch.device:
         if self.device:
-            return torch.device(self.device)
-        if torch.cuda.is_available():
-            return torch.device("cuda")
+            dev = torch.device(self.device)
+        elif torch.cuda.is_available():
+            dev = torch.device("cuda")
         elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return torch.device("mps")
-        return torch.device("cpu")
+            dev = torch.device("mps")
+        else:
+            dev = torch.device("cpu")
+
+        # Configure MPS memory pool on Apple Silicon to prevent aggressive RAM hoarding
+        if dev.type == "mps":
+            import os
+            if "PYTORCH_MPS_HIGH_WATERMARK_RATIO" not in os.environ:
+                os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+
+        return dev
 
 
 def get_cosine_schedule_with_warmup(
@@ -146,6 +156,7 @@ class YantraTrainer:
                 input_ids=input_ids,
                 attention_mask=None,  # Causal mask handled in attention
                 labels=labels,
+                return_logits=False,  # Memory optimization: compute loss selectively
             )
 
             lm_loss = outputs["loss"]
@@ -169,6 +180,13 @@ class YantraTrainer:
                 self.scheduler.step()
                 self.optimizer.zero_grad()
 
+            # Periodic cache clearing to prevent Metal memory pool bloat
+            if self.config.empty_cache_every_steps > 0 and (step + 1) % self.config.empty_cache_every_steps == 0:
+                if self.device.type == "mps" and hasattr(torch.mps, "empty_cache"):
+                    torch.mps.empty_cache()
+                elif self.device.type == "cuda" and hasattr(torch.cuda, "empty_cache"):
+                    torch.cuda.empty_cache()
+
         return total_loss / max(1, steps)
 
     @torch.no_grad()
@@ -185,9 +203,14 @@ class YantraTrainer:
             input_ids = batch["input_ids"].to(self.device)
             labels = batch["labels"].to(self.device)
 
-            outputs = self.model(input_ids=input_ids, labels=labels)
+            outputs = self.model(input_ids=input_ids, labels=labels, return_logits=False)
             total_loss += outputs["loss"].item()
             total_batches += 1
+
+        if self.device.type == "mps" and hasattr(torch.mps, "empty_cache"):
+            torch.mps.empty_cache()
+        elif self.device.type == "cuda" and hasattr(torch.cuda, "empty_cache"):
+            torch.cuda.empty_cache()
 
         avg_loss = total_loss / max(1, total_batches)
         perplexity = math.exp(min(avg_loss, 20))

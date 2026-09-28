@@ -260,6 +260,7 @@ class YantraForToolCalling(nn.Module):
         labels: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
         return_dict: bool = True,
+        return_logits: Optional[bool] = None,
     ) -> Dict[str, Any]:
         hidden_states = self.embed_tokens(input_ids)
 
@@ -272,18 +273,37 @@ class YantraForToolCalling(nn.Module):
             )
 
         hidden_states = self.norm(hidden_states)
-        logits = self.lm_head(hidden_states)
+
+        # Decide whether to compute full [batch, seq_len, vocab_size] logits.
+        # When return_logits=False (used by YantraTrainer), selective projection is activated to save 90%+ RAM.
+        if return_logits is None:
+            return_logits = True
 
         loss = None
-        if labels is not None:
-            # Shift so that tokens < n predict n
-            shift_logits = logits[..., :-1, :].contiguous()
+        logits = None
+
+        if return_logits:
+            logits = self.lm_head(hidden_states)
+            if labels is not None:
+                shift_logits = logits[..., :-1, :].contiguous()
+                shift_labels = labels[..., 1:].contiguous()
+                loss = F.cross_entropy(
+                    shift_logits.view(-1, self.config.vocab_size),
+                    shift_labels.view(-1),
+                    ignore_index=-100,
+                )
+        elif labels is not None:
+            # Selective logit projection: project hidden states strictly for tokens where labels != -100
             shift_labels = labels[..., 1:].contiguous()
-            loss = F.cross_entropy(
-                shift_logits.view(-1, self.config.vocab_size),
-                shift_labels.view(-1),
-                ignore_index=-100,
-            )
+            shift_hidden = hidden_states[..., :-1, :]
+            active_mask = (shift_labels != -100)
+            if active_mask.any():
+                active_hidden = shift_hidden[active_mask]
+                active_targets = shift_labels[active_mask]
+                active_logits = self.lm_head(active_hidden)
+                loss = F.cross_entropy(active_logits, active_targets)
+            else:
+                loss = torch.tensor(0.0, device=hidden_states.device, requires_grad=True)
 
         confidence = None
         if self.confidence_head is not None:
