@@ -12,14 +12,14 @@ from yantra import Agent, tool
 # 1. Define tools using @tool decorator
 @tool
 def set_thermostat(temperature: int, mode: str = "auto") -> str:
-    """Set the HVAC thermostat temperature in degrees and operating mode."""
+    """Adjust HVAC thermostat temperature in degrees and mode."""
     return f"[SUCCESS] Thermostat set to {temperature}F (mode={mode})"
 
 
 @tool
-def control_lights(room: str, state: str = "on", brightness: int = 100) -> str:
-    """Control smart lighting in a specified room."""
-    return f"[SUCCESS] {room.capitalize()} lights turned {state.upper()} at {brightness}% brightness"
+def control_light(room: str, state: str = "on", brightness: int = 100) -> str:
+    """Turn on/off or dim lighting fixtures in a designated room."""
+    return f"[SUCCESS] {room.capitalize()} lights set to {state.upper()} at {brightness}% brightness"
 
 
 @tool
@@ -29,8 +29,8 @@ def get_weather(city: str) -> str:
 
 
 @tool
-def schedule_meeting(title: str, time: str) -> str:
-    """Schedule a meeting on the calendar."""
+def create_calendar_event(title: str, time: str) -> str:
+    """Create an event on the user's primary calendar."""
     return f"[SUCCESS] Scheduled '{title}' for {time}"
 
 
@@ -39,31 +39,48 @@ def main():
     print("      YANTRA: Sub-50MB On-Device Tool Calling Agent Demo")
     print("=" * 65)
 
-    tools = [set_thermostat, control_lights, get_weather, schedule_meeting]
+    tools = [set_thermostat, control_light, get_weather, create_calendar_event]
     print(f"Registered Tools: {[t.name for t in tools]}\n")
 
-    # Initialize agent (uses default model or INT8 quantized checkpoint if available)
-    checkpoint_path = Path("checkpoints/yantra_35m_int8.bin")
-    if checkpoint_path.exists():
-        print(f"Loading INT8 quantized model from {checkpoint_path}...")
-        agent = Agent(tools=tools, model=str(checkpoint_path))
+    # Initialize agent (check for trained INT8 or base checkpoints)
+    int8_checkpoint = Path("checkpoints/yantra_int8.bin")
+    pt_checkpoint = Path("checkpoints/yantra_latest.pt")
+    old_checkpoint = Path("checkpoints/yantra_35m_int8.bin")
+
+    if int8_checkpoint.exists():
+        print(f"Loading trained INT8 quantized model from {int8_checkpoint}...")
+        agent = Agent(tools=tools, model=str(int8_checkpoint))
+    elif pt_checkpoint.exists():
+        print(f"Loading checkpoint from {pt_checkpoint}...")
+        from yantra.model.transformer import YantraForToolCalling
+        from yantra.model.config import YantraConfig
+        import torch
+        ckpt = torch.load(str(pt_checkpoint), map_location="cpu")
+        m = YantraForToolCalling(YantraConfig(**ckpt["config"]))
+        m.load_state_dict(ckpt["model_state_dict"])
+        agent = Agent(tools=tools, model=m)
+    elif old_checkpoint.exists():
+        print(f"Loading model from {old_checkpoint}...")
+        agent = Agent(tools=tools, model=str(old_checkpoint))
     else:
         print("Instantiating base Yantra model...")
         agent = Agent(tools=tools)
 
     # Test cases
     queries = [
-        "Turn on the kitchen lights and dim to 50 percent",
-        "What's the weather like in Tokyo right now?",
-        "Please schedule Team Sync at 3pm",
-        "Set thermostat to 72 degrees",
+        "Turn on the kitchen lights",
+        "set the thermostat to 72 degrees",
+        "schedule Team Sync at 3pm",
         "Can you write a poem about autumn leaves?",  # Unsupported / refusal case
     ]
 
     for i, q in enumerate(queries, 1):
         print(f"\n[{i}] User Query: \"{q}\"")
         # Run agent
-        response = agent.run(q, execute_tools=True, max_new_tokens=64)
+        response = agent.run(q, execute_tools=True, max_new_tokens=128)
+
+        if response.thought:
+            print(f"  Reasoning: {response.thought}")
 
         if response.is_refusal:
             print("  Result: REFUSAL / NO TOOL DISPATCHED")
