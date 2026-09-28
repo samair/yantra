@@ -146,6 +146,9 @@ class YantraTrainer:
         steps = 0
         self.optimizer.zero_grad()
 
+        total_batches = len(self.train_loader)
+        log_interval = max(1, total_batches // 10)  # Log every 10%
+
         for step, batch in enumerate(self.train_loader):
             input_ids = batch["input_ids"].to(self.device)
             labels = batch["labels"].to(self.device)
@@ -187,6 +190,12 @@ class YantraTrainer:
                 elif self.device.type == "cuda" and hasattr(torch.cuda, "empty_cache"):
                     torch.cuda.empty_cache()
 
+            # Live step progress with flush=True
+            if (step + 1) % log_interval == 0 or (step + 1) == total_batches:
+                curr_loss = total_loss / max(1, steps)
+                pct = int(100 * (step + 1) / total_batches)
+                print(f"  [Epoch {epoch_idx}] Step {step+1}/{total_batches} ({pct}%) | Loss: {curr_loss:.4f}", flush=True)
+
         return total_loss / max(1, steps)
 
     @torch.no_grad()
@@ -225,11 +234,17 @@ class YantraTrainer:
         os.makedirs(self.config.save_dir, exist_ok=True)
         history = []
 
+        print(f"\nStarting {self.config.max_epochs} Epochs of Training on {self.device}...", flush=True)
         for epoch in range(1, self.config.max_epochs + 1):
+            print(f"\n>>> Epoch {epoch}/{self.config.max_epochs} started...", flush=True)
             start_t = time.time()
             train_loss = self.train_epoch(epoch)
             eval_metrics = self.evaluate()
             elapsed = time.time() - start_t
+
+            eval_loss = eval_metrics.get("eval_loss", 0.0)
+            ppl = eval_metrics.get("perplexity", 0.0)
+            print(f">>> Epoch {epoch}/{self.config.max_epochs} Finished in {elapsed:.1f}s | Train Loss: {train_loss:.4f} | Eval Loss: {eval_loss:.4f} | PPL: {ppl:.2f}", flush=True)
 
             log_dict = {
                 "epoch": epoch,
@@ -248,5 +263,6 @@ class YantraTrainer:
             },
             checkpoint_path,
         )
+        print(f"\nCheckpoint successfully saved to {checkpoint_path}", flush=True)
 
         return {"history": history, "checkpoint_path": checkpoint_path}

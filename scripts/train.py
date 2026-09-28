@@ -32,15 +32,15 @@ def main():
     parser.add_argument("--export_name", type=str, default="yantra_int8.bin", help="Export filename")
     args = parser.parse_args()
 
-    print(f"=== Yantra SFT Training Pipeline ===")
-    print(f"Generating {args.samples} synthetic tool calling examples...")
+    print(f"=== Yantra SFT Training Pipeline ===", flush=True)
+    print(f"Generating {args.samples} synthetic tool calling examples...", flush=True)
     generator = SyntheticDataGenerator(seed=42)
     dataset_records = generator.generate_dataset(num_samples=args.samples)
 
     split_idx = int(len(dataset_records) * 0.9)
     train_data = dataset_records[:split_idx]
     eval_data = dataset_records[split_idx:]
-    print(f"Train samples: {len(train_data)}, Validation samples: {len(eval_data)}")
+    print(f"Train samples: {len(train_data)}, Validation samples: {len(eval_data)}", flush=True)
 
     tokenizer = YantraTokenizer.load()
     train_dataset = ToolCallingDataset(train_data, tokenizer=tokenizer, max_seq_len=args.max_seq_len)
@@ -48,7 +48,7 @@ def main():
 
     config = YantraConfig()
     budget = config.calculate_parameter_count()
-    print(f"Model parameters: {budget['total_params']:,} (~{budget['fp16_mb']:.1f} MB in FP16, ~{budget['int8_mb']:.1f} MB in INT8)")
+    print(f"Model parameters: {budget['total_params']:,} (~{budget['fp16_mb']:.1f} MB in FP16, ~{budget['int8_mb']:.1f} MB in INT8)", flush=True)
 
     model = YantraForToolCalling(config)
 
@@ -69,22 +69,22 @@ def main():
         tokenizer=tokenizer,
     )
 
-    print(f"Starting training on device: {train_config.get_device()}...")
+    print(f"Starting training on device: {train_config.get_device()}...", flush=True)
     train_res = trainer.train()
 
-    print("\n=== Training Summary ===")
+    print("\n=== Training Summary ===", flush=True)
     for log in train_res["history"]:
         eval_loss = log.get("eval_loss", 0.0)
         ppl = log.get("perplexity", 0.0)
-        print(f"Epoch {log['epoch']}: Train Loss = {log['train_loss']:.4f}, Eval Loss = {eval_loss:.4f}, PPL = {ppl:.2f} ({log['elapsed_sec']:.1f}s)")
+        print(f"Epoch {log['epoch']}: Train Loss = {log['train_loss']:.4f}, Eval Loss = {eval_loss:.4f}, PPL = {ppl:.2f} ({log['elapsed_sec']:.1f}s)", flush=True)
 
     # INT8 Quantization and Export
     export_path = Path(args.save_dir) / args.export_name
-    print(f"\nCompressing to INT8 per-channel weights: {export_path}...")
+    print(f"\nCompressing to INT8 per-channel weights: {export_path}...", flush=True)
     export_info = export_compressed_model(model, export_path, quantize_to_int8=True)
-    print(f"Compressed file size: {export_info['size_mb']:.2f} MB")
-    print(f"Fits under 50 MB threshold: {export_info['fits_under_50mb']}")
-    print("Done!")
+    print(f"Compressed file size: {export_info['size_mb']:.2f} MB", flush=True)
+    print(f"Fits under 50 MB threshold: {export_info['fits_under_50mb']}", flush=True)
+    print("Done!", flush=True)
 
 
 if __name__ == "__main__":
