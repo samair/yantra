@@ -69,62 +69,101 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### 2. High-Level Python SDK
+---
+
+### 2. Interactive Terminal Shell (Live REPL)
+
+Run the interactive shell to chat and test tools with the trained **45 MB** model directly from your terminal:
+
+```bash
+python scripts/chat.py
+```
+
+```text
+Available Tools:
+  • set_thermostat: Adjust HVAC thermostat temperature in degrees and operating mode.
+  • control_light: Turn on/off or dim lighting fixtures in a designated room.
+  • get_weather: Fetch current real-time weather conditions for a city.
+  • create_calendar_event: Create an event on the user's primary calendar.
+
+Loading model from checkpoints/yantra_int8.bin...
+Ready! Type a command or 'exit' / 'quit' to leave.
+
+User > Turn on the kitchen lights
+  [Thought]: Intent matches 'control_light' with args: {'room': 'kitchen', 'state': 'on'}
+  [Calls]  : [{'name': 'control_light', 'arguments': {'room': 'kitchen', 'state': 'on'}}]
+  [Result] : ['[LIGHTS] Kitchen lights turned ON at 100% brightness']
+
+User > set the thermostat to 72 degrees
+  [Thought]: Intent matches 'set_thermostat' with args: {'temperature': 72}
+  [Calls]  : [{'name': 'set_thermostat', 'arguments': {'temperature': 72}}]
+  [Result] : ['[THERMOSTAT] Temperature set to 72F (mode=auto)']
+
+User > Can you write a poem about the sea?
+  [Thought]: Query is chit-chat or out-of-scope; no available tool matches.
+  [Output] : Refusal / No matching tool found (Confidence: 0.81)
+```
+
+---
+
+### 3. Automated Demo Runner
+
+Run the automated test suite across single-tool calls, multi-tool queries, and refusal guardrails:
+
+```bash
+python scripts/demo.py
+```
+
+---
+
+### 4. High-Level Python SDK
 
 ```python
 import yantra
 
 # 1. Define tools using @yantra.tool
 @yantra.tool
-def get_weather(city: str) -> str:
-    """Fetch current real-time weather conditions for a city."""
-    return f"Weather in {city}: 72F, Sunny"
+def control_light(room: str, state: str = "on", brightness: int = 100) -> str:
+    """Turn on/off or dim lighting fixtures in a designated room."""
+    return f"Lights in {room} set to {state} at {brightness}%"
 
 @yantra.tool
 def set_thermostat(temperature: int, mode: str = "auto") -> str:
-    """Set HVAC temperature in degrees Fahrenheit."""
+    """Adjust HVAC thermostat temperature in degrees and mode."""
     return f"Thermostat set to {temperature}F ({mode})"
 
-# 2. Instantiate Agent
-agent = yantra.Agent(tools=[get_weather, set_thermostat])
+# 2. Instantiate Agent with trained 45 MB model
+agent = yantra.Agent(
+    tools=[control_light, set_thermostat],
+    model="checkpoints/yantra_int8.bin",
+)
 
 # 3. Dispatch user requests
-response = agent.run("What's the weather like in Tokyo right now?")
-print(response.tool_calls)
-# -> [{'name': 'get_weather', 'arguments': {'city': 'Tokyo'}}]
-print(response.results)
-# -> ['Weather in Tokyo: 72F, Sunny']
+response = agent.run("Turn on the kitchen lights", max_new_tokens=128)
+
+print("Reasoning  :", response.thought)
+print("Tool Calls :", response.tool_calls)
+print("Results    :", response.results)
+print("Is Refusal :", response.is_refusal)
 ```
 
-### 3. Generate Synthetic Dataset
+---
 
-```python
-from yantra import SyntheticDataGenerator
+### 5. Generate Synthetic Dataset & Train
 
-generator = SyntheticDataGenerator(seed=42)
-examples = generator.generate_dataset(num_samples=5000)
-generator.save_jsonl(examples, "data/train.jsonl")
-```
-
-The data engine balances four key distributions:
-1. **Single-tool Positive Calls (50%)**
-2. **Multi-tool Parallel Calls (15%)**
-3. **Hard Negatives & Refusals (25%)** — prompts requiring `<tool_call>[]</tool_call>`
-4. **Distractor Resistance (10%)** — 4–6 semantic distractors accompanying the target tool
-
-### 4. Train with Masked Cross-Entropy
+Generate a balanced dataset (50% single, 15% multi-tool, 25% refusals, 10% distractors) and run SFT with assistant token loss masking:
 
 ```bash
-python scripts/train.py --samples 2000 --epochs 3 --lr 3e-4 --batch_size 8 --device cpu
+python scripts/train.py --samples 5000 --epochs 5 --lr 5e-4 --batch_size 4 --gradient_accumulation_steps 4 --device mps
 ```
 
-### 5. Compress & Export to INT8 (< 50 MB)
+### 6. Compress & Export to INT8 (< 50 MB)
 
 ```python
 from yantra import YantraConfig, YantraForToolCalling, export_compressed_model
 
 model = YantraForToolCalling(YantraConfig())
-stats = export_compressed_model(model, "checkpoints/yantra_35m_int8.bin", quantize_to_int8=True)
+stats = export_compressed_model(model, "checkpoints/yantra_int8.bin", quantize_to_int8=True)
 print(f"Compressed file size: {stats['size_mb']:.2f} MB")
 # -> Compressed file size: 45.03 MB
 ```
@@ -157,8 +196,9 @@ yantra/
 │       ├── quantize.py         # Portable per-channel INT8 quantization (< 50MB)
 │       └── agent.py            # High-level developer SDK and execution agent
 ├── scripts/
-│   ├── train.py                # CLI SFT training runner
-│   └── demo.py                 # Interactive demonstration
+│   ├── chat.py                 # Interactive live CLI shell
+│   ├── demo.py                 # Automated demonstration runner
+│   └── train.py                # CLI SFT training runner
 └── tests/
     ├── test_model.py           # Architecture, GQA, KV cache, and parameter budget tests
     ├── test_schema.py          # Schema extraction and tool registry tests
