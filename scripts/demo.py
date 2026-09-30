@@ -29,6 +29,12 @@ def get_weather(city: str) -> str:
 
 
 @tool
+def control_door(location: str, state:bool) -> str:
+    """Close or Open door at a certain location."""
+    return f"[SUCCESS] Perfomed  {state} action on door at {location}"
+
+
+@tool
 def create_calendar_event(title: str, time: str) -> str:
     """Create an event on the user's primary calendar."""
     return f"[SUCCESS] Scheduled '{title}' for {time}"
@@ -71,6 +77,7 @@ def main():
         "Turn on the kitchen lights",
         "set the thermostat to 72 degrees",
         "schedule Team Sync at 3pm",
+        "Close front door",
         "Can you write a poem about autumn leaves?",  # Unsupported / refusal case
     ]
 
