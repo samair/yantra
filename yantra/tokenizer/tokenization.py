@@ -199,9 +199,13 @@ class YantraTokenizer:
     def parse_assistant_response(self, text: str) -> Tuple[Optional[str], List[Dict[str, Any]]]:
         """Extract thought span and parsed tool call list from raw assistant output."""
         thought = None
-        thought_match = re.search(r"<think>(.*?)</think>", text, re.DOTALL)
-        if thought_match:
-            thought = thought_match.group(1).strip()
+        if "<think>" in text:
+            if "</think>" in text:
+                thought = text.split("<think>")[-1].split("</think>")[0].strip()
+            elif "<tool_call>" in text:
+                thought = text.split("<think>")[-1].split("<tool_call>")[0].strip()
+            else:
+                thought = text.split("<think>")[-1].strip()
 
         tool_calls = []
         call_match = re.search(r"<tool_call>(.*?)</tool_call>", text, re.DOTALL)

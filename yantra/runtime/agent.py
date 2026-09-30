@@ -130,6 +130,14 @@ class Agent:
             elif isinstance(repaired, dict):
                 tool_calls = [repaired]
 
+        # Recover tool call from reasoned thought if JSON was truncated or malformed
+        if not tool_calls and thought:
+            intent_match = re.search(r"Intent matches '(\w+)'", thought)
+            if intent_match:
+                intended_tool = intent_match.group(1)
+                if self.registry.get(intended_tool):
+                    tool_calls = [{"name": intended_tool, "arguments": {}}]
+
         # 5. Check confidence threshold for refusal
         if conf_val < self.confidence_threshold and not tool_calls:
             return AgentResponse(

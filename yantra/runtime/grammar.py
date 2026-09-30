@@ -145,4 +145,12 @@ class JSONGrammarValidator:
                     elif re.search(r"\b(off|disable|dim)\b", lower_query):
                         grounded[req] = "off"
 
+                elif req_type == "boolean" or req == "locked":
+                    pos_match = bool(re.search(r"\b(on|lock|close|shut|enable|start|yes|true)\b", lower_query))
+                    neg_match = bool(re.search(r"\b(off|unlock|open|disable|stop|no|false)\b", lower_query))
+                    if pos_match and not neg_match:
+                        grounded[req] = True
+                    elif neg_match and not pos_match:
+                        grounded[req] = False
+
         return grounded, ungrounded
