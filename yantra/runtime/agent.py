@@ -1,6 +1,7 @@
 """High-level Agent runtime and Python SDK for Yantra Tool Dispatching."""
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
@@ -140,6 +141,16 @@ class Agent:
                 confidence=conf_val,
                 is_refusal=True,
             )
+
+        # Reconcile tool call name with explicit intent reasoning in thought if drifted
+        if thought and tool_calls:
+            intent_match = re.search(r"Intent matches '(\w+)'", thought)
+            if intent_match:
+                intended_tool = intent_match.group(1)
+                if self.registry.get(intended_tool):
+                    for call in tool_calls:
+                        if call.get("name") != intended_tool:
+                            call["name"] = intended_tool
 
         # 6. Argument grounding & validation against schemas
         validated_calls = []

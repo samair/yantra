@@ -85,20 +85,64 @@ class JSONGrammarValidator:
             elif has_default and val == param_meta["default"]:
                 grounded[param_name] = val
             elif isinstance(val, bool):
-                # Check for polar polarity words
-                if val is True and any(w in lower_query for w in ["on", "lock", "enable", "start", "yes", "true"]):
+                # Infer or ground polarity from query using whole-word boundary matching
+                pos_match = bool(re.search(r"\b(on|lock|close|shut|enable|start|yes|true)\b", lower_query))
+                neg_match = bool(re.search(r"\b(off|unlock|open|disable|stop|no|false)\b", lower_query))
+                if pos_match and not neg_match:
                     grounded[param_name] = True
-                elif val is False and any(w in lower_query for w in ["off", "unlock", "disable", "stop", "no", "false"]):
+                elif neg_match and not pos_match:
                     grounded[param_name] = False
+                elif is_in_query:
+                    grounded[param_name] = val
                 else:
                     ungrounded.append(param_name)
             else:
                 ungrounded.append(param_name)
 
-        # Check required fields
+        # Check required fields and recover ungrounded parameters from query
         for req in required:
             if req not in grounded:
+                # 1. Check default
                 if "default" in properties.get(req, {}):
                     grounded[req] = properties[req]["default"]
+                    continue
+
+                req_type = properties.get(req, {}).get("type", "string")
+
+                # 2. Extract numeric values for integer/number params
+                if req_type in ("integer", "number"):
+                    num_match = re.search(r"\b(\d+)\b", query)
+                    if num_match:
+                        grounded[req] = int(num_match.group(1)) if req_type == "integer" else float(num_match.group(1))
+                        continue
+
+                # 3. Extract common entity slots based on parameter name
+                if req == "city":
+                    loc_match = re.search(r"\b(?:in|of|for|at)\s+([A-Za-z\s]+?)(?:\?|$|,|\.)", query, re.IGNORECASE)
+                    if loc_match:
+                        grounded[req] = loc_match.group(1).strip()
+                        continue
+
+                elif req == "room":
+                    for rm in ["kitchen", "living room", "bedroom", "bathroom", "office", "garage", "hallway", "patio", "dining room"]:
+                        if rm in lower_query:
+                            grounded[req] = rm
+                            break
+                    if req in grounded:
+                        continue
+
+                elif req == "door":
+                    for d in ["front", "back", "garage", "side", "bedroom", "kitchen", "office"]:
+                        if d in lower_query:
+                            grounded[req] = d
+                            break
+                    if req in grounded:
+                        continue
+
+                elif req == "state":
+                    if re.search(r"\b(on|enable|brighten)\b", lower_query):
+                        grounded[req] = "on"
+                    elif re.search(r"\b(off|disable|dim)\b", lower_query):
+                        grounded[req] = "off"
 
         return grounded, ungrounded

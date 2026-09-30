@@ -34,17 +34,46 @@ def create_calendar_event(title: str, time: str) -> str:
     return f"[CALENDAR] Scheduled '{title}' for {time}"
 
 
+@tool
+def lock_door(door: str, locked: bool) -> str:
+    """Lock or unlock smart security door lock."""
+    action = "locked" if locked else "unlocked"
+    return f"[DOOR] {door.capitalize()} door is now {action}"
+
+
+@tool
+def set_timer(minutes: int, label: str = "timer") -> str:
+    """Set a countdown timer on the device."""
+    return f"[TIMER] Timer set for {minutes} minutes ({label})"
+
+
+@tool
+def send_message(recipient: str, message: str) -> str:
+    """Send a text or chat message to a contact."""
+    return f"[MESSAGE] Sent to {recipient}: '{message}'"
+
+
 def main():
     print("=" * 60)
     print("  YANTRA: Interactive Tool Calling Shell (< 50MB Model)")
     print("=" * 60)
 
-    tools = [set_thermostat, control_light, get_weather, create_calendar_event]
+    tools = [
+        set_thermostat,
+        control_light,
+        get_weather,
+        create_calendar_event,
+        lock_door,
+        set_timer,
+        send_message,
+    ]
     print("Available Tools:")
     for t in tools:
         print(f"  • {t.name}: {t.description}")
 
     checkpoint_path = Path("checkpoints/yantra_int8.bin")
+    if not checkpoint_path.exists():
+        checkpoint_path = Path("checkpoints/yantra_35m_int8.bin")
     if not checkpoint_path.exists():
         checkpoint_path = Path("checkpoints/yantra_latest.pt")
 

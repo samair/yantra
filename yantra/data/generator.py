@@ -22,10 +22,13 @@ SEED_TOOLS: List[Dict[str, Any]] = [
         },
         "templates": [
             ("set the thermostat to {temp} degrees", {"temperature": "{temp}"}),
+            ("set thermostat to {temp}", {"temperature": "{temp}"}),
             ("make it {temp} degrees in here", {"temperature": "{temp}"}),
+            ("make it {temp} degrees", {"temperature": "{temp}"}),
             ("turn the heat to {temp}", {"temperature": "{temp}", "mode": "heat"}),
             ("cool down the room to {temp} fahrenheit", {"temperature": "{temp}", "mode": "cool", "unit": "fahrenheit"}),
             ("set AC to {temp} celsius", {"temperature": "{temp}", "mode": "cool", "unit": "celsius"}),
+            ("adjust temperature to {temp}", {"temperature": "{temp}"}),
         ],
         "args_pool": {
             "temp": [68, 70, 72, 74, 75, 76, 19, 21, 22, 24],
@@ -45,9 +48,12 @@ SEED_TOOLS: List[Dict[str, Any]] = [
         },
         "templates": [
             ("turn on the {room} lights", {"room": "{room}", "state": "on"}),
+            ("turn on {room} light", {"room": "{room}", "state": "on"}),
+            ("switch on {room} lights", {"room": "{room}", "state": "on"}),
             ("switch off the lights in the {room}", {"room": "{room}", "state": "off"}),
-            ("dim {room} light to {brightness} percent", {"room": "{room}", "state": "on", "brightness": "{brightness}"}),
+            ("turn off {room} lights", {"room": "{room}", "state": "off"}),
             ("turn off {room}", {"room": "{room}", "state": "off"}),
+            ("dim {room} light to {brightness} percent", {"room": "{room}", "state": "on", "brightness": "{brightness}"}),
             ("set the {room} brightness to {brightness}", {"room": "{room}", "state": "on", "brightness": "{brightness}"}),
         ],
         "args_pool": {
@@ -68,13 +74,28 @@ SEED_TOOLS: List[Dict[str, Any]] = [
         },
         "templates": [
             ("what's the weather in {city}?", {"city": "{city}"}),
+            ("what is the weather in {city}", {"city": "{city}"}),
+            ("what's the weather like in {city}", {"city": "{city}"}),
+            ("how's the weather in {city}", {"city": "{city}"}),
+            ("how is the weather in {city}", {"city": "{city}"}),
+            ("weather in {city}", {"city": "{city}"}),
+            ("weather of {city}", {"city": "{city}"}),
+            ("fetch weather of {city}", {"city": "{city}"}),
+            ("fetch the weather for {city}", {"city": "{city}"}),
+            ("get weather for {city}", {"city": "{city}"}),
+            ("check the weather in {city}", {"city": "{city}"}),
+            ("tell me the weather in {city}", {"city": "{city}"}),
             ("is it raining in {city} today?", {"city": "{city}"}),
             ("give me the {days} day forecast for {city}", {"city": "{city}", "forecast_days": "{days}"}),
             ("current temperature in {city}", {"city": "{city}"}),
             ("how's the weather like in {city} right now?", {"city": "{city}"}),
         ],
         "args_pool": {
-            "city": ["Seattle", "Tokyo", "London", "San Francisco", "New York", "Paris", "Berlin", "Bengaluru", "Sydney", "Toronto"],
+            "city": [
+                "Seattle", "Tokyo", "London", "San Francisco", "New York", "Paris", "Berlin",
+                "Bengaluru", "Sydney", "Toronto", "India", "Chicago", "Boston", "Mumbai",
+                "Delhi", "California", "Texas", "Austin", "Miami", "Singapore"
+            ],
             "days": [1, 3, 5, 7],
         },
     },
@@ -93,9 +114,11 @@ SEED_TOOLS: List[Dict[str, Any]] = [
         },
         "templates": [
             ("schedule {title} at {time}", {"title": "{title}", "time": "{time}"}),
+            ("schedule a meeting called {title} at {time}", {"title": "{title}", "time": "{time}"}),
             ("add {title} to my calendar tomorrow at {time}", {"title": "{title}", "date": "tomorrow", "time": "{time}"}),
             ("book a {duration} minute meeting for {title} at {time}", {"title": "{title}", "time": "{time}", "duration_minutes": "{duration}"}),
             ("put {title} on my schedule at {time}", {"title": "{title}", "time": "{time}"}),
+            ("set up {title} at {time}", {"title": "{title}", "time": "{time}"}),
         ],
         "args_pool": {
             "title": ["Team Sync", "Dentist Appointment", "1-on-1 with Alex", "Project Review", "Coffee with Sarah", "Gym Session"],
@@ -117,6 +140,8 @@ SEED_TOOLS: List[Dict[str, Any]] = [
         "templates": [
             ("set a timer for {minutes} minutes", {"minutes": "{minutes}"}),
             ("start a {minutes} minute timer for {label}", {"minutes": "{minutes}", "label": "{label}"}),
+            ("set timer for {minutes} minutes", {"minutes": "{minutes}"}),
+            ("timer for {minutes} minutes", {"minutes": "{minutes}"}),
             ("time {minutes} minutes", {"minutes": "{minutes}"}),
             ("remind me in {minutes} minutes to {label}", {"minutes": "{minutes}", "label": "{label}"}),
         ],
@@ -140,6 +165,8 @@ SEED_TOOLS: List[Dict[str, Any]] = [
             ("send a message to {recipient} saying {msg}", {"recipient": "{recipient}", "message": "{msg}"}),
             ("text {recipient} that {msg}", {"recipient": "{recipient}", "message": "{msg}"}),
             ("tell {recipient} {msg}", {"recipient": "{recipient}", "message": "{msg}"}),
+            ("send text to {recipient} saying {msg}", {"recipient": "{recipient}", "message": "{msg}"}),
+            ("message {recipient}: {msg}", {"recipient": "{recipient}", "message": "{msg}"}),
         ],
         "args_pool": {
             "recipient": ["Alice", "Bob", "Mom", "Dad", "David", "Emma"],
@@ -159,7 +186,14 @@ SEED_TOOLS: List[Dict[str, Any]] = [
         },
         "templates": [
             ("lock the {door} door", {"door": "{door}", "locked": True}),
+            ("lock {door} door", {"door": "{door}", "locked": True}),
             ("unlock the {door} door", {"door": "{door}", "locked": False}),
+            ("unlock {door} door", {"door": "{door}", "locked": False}),
+            ("open the {door} door", {"door": "{door}", "locked": False}),
+            ("open {door} door", {"door": "{door}", "locked": False}),
+            ("close the {door} door", {"door": "{door}", "locked": True}),
+            ("close {door} door", {"door": "{door}", "locked": True}),
+            ("shut the {door} door", {"door": "{door}", "locked": True}),
             ("make sure the {door} door is locked", {"door": "{door}", "locked": True}),
         ],
         "args_pool": {
@@ -277,12 +311,36 @@ class SyntheticDataGenerator:
 
     def _sample_hard_negative(self) -> SyntheticExample:
         """Sample a refusal / out-of-scope query where target output is []."""
-        query = self.rng.choice(UNSUPPORTED_QUERIES)
-        num_tools = self.rng.randint(1, 4)
-        sampled = self.rng.sample(self.seed_tools, num_tools)
-        schemas = [self._extract_schema(t) for t in sampled]
+        # 50% chit-chat / general knowledge refusal
+        # 50% out-of-toolset refusal (user asks for a tool that is not provided in active tools)
+        if self.rng.random() < 0.5:
+            query = self.rng.choice(UNSUPPORTED_QUERIES)
+            num_tools = self.rng.randint(1, 4)
+            sampled = self.rng.sample(self.seed_tools, num_tools)
+            schemas = [self._extract_schema(t) for t in sampled]
+            thought = "Query is chit-chat or out-of-scope; no available tool matches."
+        else:
+            # Pick a target tool to generate query from
+            target_tool = self.rng.choice(self.seed_tools)
+            template, arg_map = self.rng.choice(target_tool["templates"])
+            resolved_args = {}
+            query = template
+            for placeholder, value in arg_map.items():
+                if isinstance(value, str) and value.startswith("{") and value.endswith("}"):
+                    pool_key = value[1:-1]
+                    choice = self.rng.choice(target_tool["args_pool"][pool_key])
+                    resolved_args[placeholder] = choice
+                    query = query.replace(value, str(choice))
+                else:
+                    resolved_args[placeholder] = value
 
-        thought = "Query is chit-chat or out-of-scope; no available tool matches."
+            # Active tools specifically EXCLUDE target_tool!
+            other_tools = [t for t in self.seed_tools if t["name"] != target_tool["name"]]
+            num_others = self.rng.randint(1, min(3, len(other_tools)))
+            sampled_others = self.rng.sample(other_tools, num_others)
+            schemas = [self._extract_schema(t) for t in sampled_others]
+            thought = f"Required tool '{target_tool['name']}' is not available in provided tools."
+
         return SyntheticExample(
             tools=schemas,
             query=query,
